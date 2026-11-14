@@ -41,15 +41,17 @@ Body: `to` plus `assigned_to`, `reason` or `resolution_note` as the move require
 - Checked against the **current server status**, not what the client last saw.
 - Invalid move: **409** `INVALID_TRANSITION` with `from`, `to`, `allowed`.
 - Missing required field: **400** `MISSING_FIELD` with `fields`.
-- Success: update + `version` + 1 + one event (`status_changed`, `rejected` or `reopened`, with the reason in `message`) in **one transaction**.
+- Success: update + `version` + 1 + one event (`status_changed`, `rejected` or `reopened`, with the reason in `message`) in **one transaction**. Returns the updated report.
 
 ## Errors
 
 | Status | Shape | When |
 | --- | --- | --- |
 | 400 | `{ error, fields }` | Validation failed, bad id, missing headers |
+| 403 | `{ error, code: "FORBIDDEN" }` | User has the wrong role |
 | 404 | `{ error }` | Unknown report |
 | 409 | `{ error, code, ... }` | Invalid transition, version conflict, locked, id conflict |
+| 413 | `{ error }` | Request body exceeds 10 KB |
 | 500 | `{ error }` | Generic message; real error logged on the server |
 
 Report object: `id, category, description, location_text, latitude, longitude, priority, status, reporter_name, assigned_to, resolution_note, reported_at, received_at, updated_at, version`.
