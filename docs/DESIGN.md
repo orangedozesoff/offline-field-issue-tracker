@@ -23,7 +23,7 @@ A React client stores everything in IndexedDB first, and a separate sync engine 
 
 Field-worker data reaches the server only through the sync engine; coordinator actions go straight to the API and need a connection.
 
-The stack follows Day 3: React + Vite (JavaScript), Express (CommonJS), PostgreSQL through the Supabase session pooler, Vitest and supertest for tests. Only `api.js` and the sync engine call `fetch`, so the rest of the UI never depends on the network.
+The stack follows Day 3: React + Vite (JavaScript), Express (CommonJS), PostgreSQL through the Supabase session pooler, Node's built-in test runner and supertest for tests. Only `api.js` and the sync engine call `fetch`, so the rest of the UI never depends on the network.
 
 ## Data model
 
