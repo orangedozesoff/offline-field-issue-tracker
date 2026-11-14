@@ -103,3 +103,9 @@ test('actor headers: role and name required', () => {
   assert.ok(V.validateActor({ 'x-role': 'coordinator' }).fields['x-actor']);
   assert.ok(V.validateActor().fields['x-role']);
 });
+
+test('isUuid accepts UUIDs only', () => {
+  assert.equal(V.isUuid(ID), true);
+  assert.equal(V.isUuid(ID.toUpperCase()), true);
+  for (const bad of ['abc', '', undefined, null, 5, ID + 'x']) assert.equal(V.isUuid(bad), false);
+});

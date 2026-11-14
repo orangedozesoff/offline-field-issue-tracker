@@ -13,6 +13,7 @@ const MAX_EVENTS = 50;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const isObject = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
+const isUuid = (x) => typeof x === 'string' && UUID_RE.test(x);
 const done = (value, fields) => ({ ok: Object.keys(fields).length === 0, value, fields });
 
 function text(raw, min, max, label) {
@@ -170,5 +171,5 @@ function validateActor(headers = {}) {
 
 module.exports = {
   CATEGORIES, PRIORITIES, ROLES, DEVICE_EVENT_TYPES,
-  validateCreate, validateEdit, validateStatusInput, validateActor, validateDeviceEvents,
+  validateCreate, validateEdit, validateStatusInput, validateActor, validateDeviceEvents, isUuid,
 };
