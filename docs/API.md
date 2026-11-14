@@ -12,7 +12,7 @@ Identity is simulated with two headers on every write: `X-Role` (`field_worker` 
 | GET | `/reports/:id` | anyone | 200 | One report |
 | GET | `/reports/:id/events` | anyone | 200 | Activity history, oldest first |
 | POST | `/reports` | field worker | 201 or 200 | Idempotent create (see below) |
-| PATCH | `/reports/:id` | worker (own edits) or coordinator | 200 | Edit with version check |
+| PATCH | `/reports/:id` | worker (Submitted only) or coordinator | 200 | Edit with version check |
 | POST | `/reports/:id/status` | coordinator | 200 | Change workflow status |
 
 ## Create: `POST /reports`
@@ -24,6 +24,7 @@ Body: `id` (UUID made on the device), `category`, `description`, `location_text`
 - Id exists, `version` is 1 and content differs: **409** `ID_CONFLICT`.
 - Id exists, `version` above 1: **200** with the stored report (the create already succeeded earlier).
 - Uploaded `events` are inserted with `ON CONFLICT (id) DO NOTHING`.
+- If no created event is uploaded, the server writes one.
 
 ## Edit: `PATCH /reports/:id`
 
@@ -31,9 +32,8 @@ Body: `base_version` (required) plus any of `description`, `location_text`, `lat
 
 - Field worker: allowed only while status is `Submitted`, otherwise **409** `LOCKED`.
 - Coordinator: may change `priority` at any status; other fields follow the same lock.
-- `base_version` must equal the stored `version`, otherwise **409** `VERSION_CONFLICT` with the current report in `current`.
-- Success increments `version`, writes an `edited` event in the same transaction, returns the updated report.
-
+- `base_version` must equal the stored `version`, otherwise **409** `VERSION_CONFLICT` with the current report in `current`. 
+- Success increments `version`, writes an `edited` event unless the request already carries one, and returns the updated report.
 ## Status change: `POST /reports/:id/status`
 
 Body: `to` plus `assigned_to`, `reason` or `resolution_note` as the move requires (see `domain/transitions.js`).
