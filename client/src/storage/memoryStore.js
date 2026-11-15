@@ -25,10 +25,14 @@ export function createMemoryStore() {
       return [...events.values()].filter((e) => !e.uploaded).map(clone).sort(byTime);
     },
     // One atomic write (the IndexedDB store uses a single transaction across stores).
+    // Everything is cloned first, so a value that cannot be stored aborts the whole commit.
     async commit({ reports: r = [], ops: o = [], deleteOps = [], deleteReports = [], events: e = [] } = {}) {
-      for (const x of r) reports.set(x.id, clone(x));
-      for (const x of o) ops.set(x.op_id, clone(x));
-      for (const x of e) events.set(x.id, clone(x));
+      const cr = r.map(clone);
+      const co = o.map(clone);
+      const ce = e.map(clone);
+      for (const x of cr) reports.set(x.id, x);
+      for (const x of co) ops.set(x.op_id, x);
+      for (const x of ce) events.set(x.id, x);
       for (const id of deleteOps) ops.delete(id);
       for (const id of deleteReports) reports.delete(id);
     },
