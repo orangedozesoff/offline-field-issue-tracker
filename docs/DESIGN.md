@@ -67,8 +67,8 @@ Every change is written to a local outbox first and removed only after the serve
 3. **One syncer at a time.** The Web Locks API stops two open tabs from sending the same entry. Each entry gets a short lease so a crash mid-send is detected and the entry is reset to pending on next start.
 4. **Send.** `POST /reports` carries the client UUID as `id`. The server inserts with `ON CONFLICT (id) DO NOTHING`; if the row exists with identical content it returns 200 with the stored report, so a retry after a lost response succeeds quietly.
 5. **Success (200/201).** The entry leaves the outbox, `sync_state = Synchronized`, and a `synced` event is recorded.
-6. **Temporary failure** (network error, timeout, 5xx). The report stays Pending, `attempts` increases, and the next try waits 2s, 4s, 8s and so on up to 60s, with random jitter. Timeouts allow about 30 seconds because the free Render host can take up to a minute to wake.
-7. **Permanent failure.** A 400 or 409 marks the report Failed at once, stores the server's `fields` or conflict message in `last_error`, and writes a `sync_failed` event. After 8 temporary failures the report also becomes Failed. A Failed report is never deleted; the user can fix it and press Retry.
+6. **Temporary failure** (network error, timeout, 5xx). The report stays Pending, `attempts` increases only for HTTP 5xx responses, and the next try waits 2s, 4s, 8s and so on up to 60s, with random jitter. Network errors and timeouts do not count toward the 8-attempt limit. Timeouts allow about 30 seconds because the free Render host can take up to a minute to wake.
+7. **Permanent failure.** A 400 or 409 marks the report Failed at once, stores the server's `fields` or conflict message in `last_error`, and writes a `sync_failed` event. After 8 HTTP 5xx responses, the report also becomes Failed. Network errors and timeouts never make a report Failed; it stays Pending and keeps retrying. A Failed report is never deleted; the user can fix it and press Retry.
 
 | Sync state | Meaning | Leaves the state when |
 | --- | --- | --- |
@@ -119,7 +119,7 @@ Device events carry their own UUID and an `occurred_at` time, and are uploaded w
 
 Tests go where a bug would silently lose or corrupt a report, in this order. Pure logic is tested without a database; API tests run against a separate `test` schema in the same Supabase project (via `TEST_DATABASE_URL`), cleared before each run.
 
-1. **Sync engine** (Vitest + `fake-indexeddb`, fake API): an offline save stays Pending and survives a simulated reload; a lost response followed by a retry gives one record; a crash mid-send is recovered; a 400 becomes Failed and keeps the data; backoff caps at 60s.
+1. **Sync engine** (Node's built-in test runner + `fake-indexeddb`, fake API): an offline save stays Pending and survives a simulated reload; a lost response followed by a retry gives one record; a crash mid-send is recovered; a 400 becomes Failed and keeps the data; backoff caps at 60s.
 2. **Idempotent create** (supertest): the same POST twice returns one row; same ID with different content returns 409.
 3. **Transition rules** (unit): every valid pair passes, every other pair is rejected, required reasons and notes are enforced.
 4. **Conflict handling** (supertest): an edit with a stale `base_version` returns 409 and changes nothing.

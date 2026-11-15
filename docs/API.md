@@ -14,6 +14,7 @@ Identity is simulated with two headers on every write: `X-Role` (`field_worker` 
 | POST | `/reports` | field worker | 201 or 200 | Idempotent create (see below) |
 | PATCH | `/reports/:id` | worker (Submitted only) or coordinator | 200 | Edit with version check |
 | POST | `/reports/:id/status` | coordinator | 200 | Change workflow status |
+| POST | `/reports/:id/events` | any role | 200 | Upload history events. Known event ids are ignored. |
 
 ## Create: `POST /reports`
 
