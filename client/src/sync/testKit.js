@@ -70,6 +70,25 @@ export function makeServer() {
         return { status: 200, body: structuredClone(ex) };
       });
     },
+    async listReports() {
+      return handle('list', () => ({ status: 200, body: [...reports.values()].map((r) => structuredClone(r)) }));
+    },
+    async listEvents(id) {
+      return handle('listEvents', () => ({ status: 200, body: [...events.values()].filter((e) => e.report_id === id).map((e) => ({ ...e, actor: 'server' })) }));
+    },
+    async changeStatus(id, p) {
+      return handle('status', () => {
+        const ex = reports.get(id);
+        if (!ex) return { status: 404, body: { error: 'Report not found' } };
+        if (p.to !== 'Assigned' || ex.status !== 'Submitted') {
+          return { status: 409, body: { error: `Cannot move a report from ${ex.status} to ${p.to}.`, code: 'INVALID_TRANSITION', allowed: ['Assigned', 'Rejected'] } };
+        }
+        Object.assign(ex, { status: 'Assigned', assigned_to: p.assigned_to, version: ex.version + 1, updated_at: new Date().toISOString() });
+        const id2 = `srv-${ex.version}`;
+        events.set(id2, { id: id2, report_id: id, type: 'status_changed', from_status: 'Submitted', to_status: 'Assigned', message: `Assigned to ${p.assigned_to}`, occurred_at: new Date().toISOString() });
+        return { status: 200, body: structuredClone(ex) };
+      });
+    },
     async postEvents(id, list) {
       return handle('events', () => {
         if (!reports.has(id)) return { status: 404, body: { error: 'Report not found' } };
