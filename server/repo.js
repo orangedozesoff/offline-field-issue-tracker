@@ -208,7 +208,17 @@ function createRepo(pool) {
     });
   }
 
-  return { getReport, listEvents, listReports, createReport, editReport, changeStatus };
+  // Device events uploaded on their own (e.g. 'synced' after the last operation).
+  function appendEvents(id, events, actor) {
+    return withTransaction(pool, async (client) => {
+      const cur = await client.query('SELECT id FROM reports WHERE id = $1', [id]);
+      if (cur.rowCount === 0) return { result: 'not_found' };
+      await insertEvents(client, id, actor, events);
+      return { result: 'ok' };
+    });
+  }
+
+  return { getReport, listEvents, listReports, createReport, editReport, changeStatus, appendEvents };
 }
 
 module.exports = { createRepo, REPORT_COLUMNS, EVENT_COLUMNS };

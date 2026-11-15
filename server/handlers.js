@@ -4,7 +4,7 @@
 // -> body (400) -> repository.
 
 const {
-  validateCreate, validateEdit, validateStatusInput, validateActor, isUuid, CATEGORIES, PRIORITIES,
+  validateCreate, validateEdit, validateStatusInput, validateActor, validateDeviceEvents, isUuid, CATEGORIES, PRIORITIES,
 } = require('./domain/validation');
 const { STATUSES } = require('./domain/transitions');
 
@@ -54,6 +54,21 @@ function createHandlers(repo) {
       const report = await repo.getReport(params.id);
       if (!report) return notFound();
       return reply(200, await repo.listEvents(params.id));
+    },
+
+    // Device uploads history events on their own (idempotent: known event ids are ignored).
+    async postEvents({ params, headers, body }) {
+      if (!isUuid(params.id)) return badId();
+      const who = authenticate(headers);
+      if (who.response) return who.response;
+      if (body === null || typeof body !== 'object' || !Array.isArray(body.events) || body.events.length === 0) {
+        return invalid({ events: 'Provide a non-empty list of events' });
+      }
+      const ev = validateDeviceEvents(body.events);
+      if (!ev.ok) return invalid(ev.fields);
+      const r = await repo.appendEvents(params.id, ev.value, who.actor);
+      if (r.result === 'not_found') return notFound();
+      return reply(200, { received: ev.value.length });
     },
 
     async createReport({ headers, body }) {

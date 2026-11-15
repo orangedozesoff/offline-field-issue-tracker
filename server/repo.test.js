@@ -219,3 +219,13 @@ it('history is append-only: UPDATE, DELETE and TRUNCATE are refused', async () =
   await assert.rejects(pool.query('TRUNCATE report_events'), /append-only/);
   await assert.rejects(pool.query('DELETE FROM reports WHERE id = $1', [input.id]), /foreign key|violates/);
 });
+
+it('appendEvents: adds device events, ignores known ids, and refuses unknown reports', async () => {
+  const input = mk();
+  await repo.createReport(input, 'Selam');
+  const ev = devEvent('synced', 'Report accepted by the server');
+  assert.equal((await repo.appendEvents(input.id, [ev], 'Selam')).result, 'ok');
+  assert.equal((await repo.appendEvents(input.id, [ev], 'Selam')).result, 'ok'); // same id: ignored
+  assert.deepEqual(await types(input.id), ['created', 'synced']);
+  assert.equal((await repo.appendEvents(crypto.randomUUID(), [devEvent('synced')], 'Selam')).result, 'not_found');
+});

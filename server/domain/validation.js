@@ -163,7 +163,15 @@ function validateActor(headers = {}) {
   const v = {};
   if (!ROLES.includes(headers['x-role'])) f['x-role'] = 'Must be one of: ' + ROLES.join(', ');
   else v.role = headers['x-role'];
-  const r = text(headers['x-actor'], 2, 60, 'X-Actor');
+  let rawActor = headers['x-actor'];
+  if (typeof rawActor === 'string') {
+    try {
+      rawActor = decodeURIComponent(rawActor); // clients percent-encode names (e.g. Amharic) for the header
+    } catch (_) {
+      /* not encoded: use as sent */
+    }
+  }
+  const r = text(rawActor, 2, 60, 'X-Actor');
   if (r.error) f['x-actor'] = r.error;
   else v.actor = r.value;
   return done(v, f);

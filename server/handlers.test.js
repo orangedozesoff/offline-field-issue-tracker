@@ -22,9 +22,10 @@ function setup(overrides = {}) {
     createReport: spy('createReport', { result: 'created', report: REPORT }),
     editReport: spy('editReport', { result: 'ok', report: { ...REPORT, version: 2 } }),
     changeStatus: spy('changeStatus', { result: 'ok', report: { ...REPORT, status: 'Assigned', version: 2 } }),
+    appendEvents: spy('appendEvents', { result: 'ok' }),
   };
   for (const [k, v] of Object.entries(overrides)) repo[k] = spy(k, v);
-  return { h: createHandlers(repo), calls, wrote: () => calls.some(([n]) => ['createReport', 'editReport', 'changeStatus'].includes(n)) };
+  return { h: createHandlers(repo), calls, wrote: () => calls.some(([n]) => ['createReport', 'editReport', 'changeStatus', 'appendEvents'].includes(n)) };
 }
 
 test('health check', async () => {
@@ -136,4 +137,29 @@ test('status: ok 200, 404, invalid transition 409 with allowed, missing field 40
 test('unexpected repository errors are thrown, not swallowed', async () => {
   const s = setup({ getReport: () => { throw new Error('db down'); } });
   await assert.rejects(s.h.getReport({ params: { id: ID } }), /db down/);
+});
+
+const EVENT = { id: '9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f', type: 'synced', occurred_at: '2026-11-14T10:00:00Z' };
+
+test('events upload: id, headers and body are checked before the database', async () => {
+  const s = setup();
+  assert.equal((await s.h.postEvents({ params: { id: 'x' }, headers: WORKER, body: { events: [EVENT] } })).status, 400);
+  assert.equal((await s.h.postEvents({ params: { id: ID }, headers: {}, body: { events: [EVENT] } })).status, 400);
+  for (const body of [undefined, {}, { events: [] }, { events: 'no' }]) {
+    assert.equal((await s.h.postEvents({ params: { id: ID }, headers: WORKER, body })).status, 400);
+  }
+  const forged = await s.h.postEvents({ params: { id: ID }, headers: WORKER, body: { events: [{ ...EVENT, type: 'status_changed' }] } });
+  assert.equal(forged.status, 400);
+  assert.ok(forged.body.fields['events[0].type']);
+  assert.equal(s.wrote(), false);
+});
+
+test('events upload: 200 with a count, actor passed on, 404 for an unknown report', async () => {
+  const s = setup();
+  const ok = await s.h.postEvents({ params: { id: ID }, headers: WORKER, body: { events: [EVENT] } });
+  assert.deepEqual([ok.status, ok.body], [200, { received: 1 }]);
+  assert.equal(s.calls[0][0], 'appendEvents');
+  assert.equal(s.calls[0][3], 'Selam');
+  const missing = setup({ appendEvents: { result: 'not_found' } });
+  assert.equal((await missing.h.postEvents({ params: { id: ID }, headers: WORKER, body: { events: [EVENT] } })).status, 404);
 });

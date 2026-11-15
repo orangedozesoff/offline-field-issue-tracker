@@ -109,3 +109,10 @@ test('isUuid accepts UUIDs only', () => {
   assert.equal(V.isUuid(ID.toUpperCase()), true);
   for (const bad of ['abc', '', undefined, null, 5, ID + 'x']) assert.equal(V.isUuid(bad), false);
 });
+
+test('actor header: percent-encoded names decode, plain and odd names still work', () => {
+  const enc = V.validateActor({ 'x-role': 'field_worker', 'x-actor': encodeURIComponent('ሰላም ተስፋዬ') });
+  assert.equal(enc.value.actor, 'ሰላም ተስፋዬ');
+  assert.equal(V.validateActor({ 'x-role': 'field_worker', 'x-actor': 'Selam Tesfaye' }).value.actor, 'Selam Tesfaye');
+  assert.equal(V.validateActor({ 'x-role': 'field_worker', 'x-actor': '100%' }).value.actor, '100%');
+});

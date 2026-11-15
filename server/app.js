@@ -32,6 +32,7 @@ function createApp({ repo, clientUrl }) {
   app.get('/reports/:id', route(h.getReport));          // one report
   app.get('/reports/:id/events', route(h.listEvents));  // activity history
   app.post('/reports', route(h.createReport));          // idempotent create
+  app.post('/reports/:id/events', route(h.postEvents)); // upload device history events
   app.patch('/reports/:id', route(h.editReport));       // version-checked edit
   app.post('/reports/:id/status', route(h.changeStatus)); // workflow change
 
