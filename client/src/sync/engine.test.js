@@ -235,3 +235,21 @@ test('stale version: Failed with VERSION_CONFLICT, discard restores the server c
   const r = await env.store.getReport(id);
   assert.deepEqual([r.sync_state, r.priority, r.description, r.version], ['Synchronized', 'Critical', 'Pump handle is broken', 2]);
 });
+
+test('force ignores the retry delay, but never retries a Failed report', async () => {
+  const env = makeEnv();
+  env.server.plan.push('network');
+  const id = await submit(env);
+  await env.engine.syncOnce(); // fails, waits 2s
+  assert.equal((await env.engine.syncOnce()).waiting, 1); // normal run respects the delay
+  assert.equal((await env.engine.syncOnce({ force: true })).succeeded, 1); // forced run goes now
+  assert.equal((await env.store.getReport(id)).sync_state, 'Synchronized');
+
+  const b = await submit(env, { description: 'Another different problem' });
+  env.server.plan.push({ status: 400, body: { error: 'Validation failed', fields: { description: 'x' } } });
+  await env.engine.syncOnce({ force: true });
+  const calls = env.server.calls.length;
+  await env.engine.syncOnce({ force: true });
+  assert.equal(env.server.calls.length, calls); // Failed stays Failed even when forced
+  assert.equal((await env.store.getReport(b)).sync_state, 'Failed');
+});

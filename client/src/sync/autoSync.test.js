@@ -20,7 +20,7 @@ function fakeEnv({ locks = null } = {}) {
     listeners: () => Object.values(handlers).reduce((n, s) => n + s.size, 0),
   };
 }
-const engineOf = (impl) => { const e = { calls: 0, syncOnce: async () => { e.calls++; if (impl) await impl(e.calls); } }; return e; };
+const engineOf = (impl) => { const e = { calls: 0, forced: [], syncOnce: async (opts = {}) => { e.calls++; e.forced.push(Boolean(opts.force)); if (impl) await impl(e.calls); } }; return e; };
 
 test('syncs once at start, then on online, on visible (not hidden), and on the timer', async () => {
   const f = fakeEnv();
@@ -85,5 +85,19 @@ test('a failing run does not stop the scheduler', async (t) => {
   await tick();
   f.emit('online'); await tick();
   assert.equal(engine.calls, 2);
+  sync.stop();
+});
+
+test('only connection changes and explicit requests skip the retry delay', async () => {
+  const f = fakeEnv();
+  const engine = engineOf();
+  const sync = startAutoSync({ engine, env: f.env });
+  await tick();
+  f.tickTimer(); await tick();
+  f.emit('online'); await tick();
+  f.emit('visibilitychange'); await tick();
+  await sync.trigger({ force: true }); await tick();
+  await sync.trigger(); await tick();
+  assert.deepEqual(engine.forced, [false, false, true, true, true, false]);
   sync.stop();
 });
