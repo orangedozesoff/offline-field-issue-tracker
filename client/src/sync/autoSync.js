@@ -13,13 +13,16 @@ export function startAutoSync({ engine, intervalMs = 30000, env = {} }) {
   let running = false;
   let again = false;
   let stopped = false;
+  let forceNext = false;
 
-  const execute = () => (locks?.request
-    ? locks.request(LOCK_NAME, { ifAvailable: true }, (lock) => (lock ? engine.syncOnce() : null))
-    : engine.syncOnce());
+  const execute = (force) => (locks?.request
+    ? locks.request(LOCK_NAME, { ifAvailable: true }, (lock) => (lock ? engine.syncOnce({ force }) : null))
+    : engine.syncOnce({ force }));
 
-  async function trigger() {
+  // force: skip the retry delay (connection came back, tab became visible, user tapped Sync now).
+  async function trigger({ force = false } = {}) {
     if (stopped) return;
+    if (force) forceNext = true;
     if (running) {
       again = true; // something changed during a run: go once more afterwards
       return;
@@ -28,8 +31,10 @@ export function startAutoSync({ engine, intervalMs = 30000, env = {} }) {
     try {
       do {
         again = false;
+        const force = forceNext;
+        forceNext = false;
         try {
-          await execute();
+          await execute(force);
         } catch (err) {
           console.error('Sync run failed:', err);
         }
@@ -39,8 +44,8 @@ export function startAutoSync({ engine, intervalMs = 30000, env = {} }) {
     }
   }
 
-  const onOnline = () => { trigger(); };
-  const onVisible = () => { if (!doc || doc.visibilityState === 'visible') trigger(); };
+  const onOnline = () => { trigger({ force: true }); };
+  const onVisible = () => { if (!doc || doc.visibilityState === 'visible') trigger({ force: true }); };
   win?.addEventListener?.('online', onOnline);
   doc?.addEventListener?.('visibilitychange', onVisible);
   const timer = setTimer(() => { trigger(); }, intervalMs);

@@ -35,7 +35,7 @@ export function createAppState({ store, api, now, uuid, syncIntervalMs = 30000, 
       scheduler?.stop();
       scheduler = null;
     },
-    syncNow: () => (scheduler ? scheduler.trigger() : engine.syncOnce()),
+    syncNow: () => (scheduler ? scheduler.trigger({ force: true }) : engine.syncOnce({ force: true })),
 
     async snapshot() {
       const all = await store.listReports();

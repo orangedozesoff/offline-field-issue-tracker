@@ -142,7 +142,8 @@ export function createSyncEngine({
     return flushed;
   }
 
-  async function syncOnce() {
+  // force: ignore the retry delay (used when the connection returns or the user taps Sync now).
+  async function syncOnce({ force = false } = {}) {
     if (running) return { skipped: true };
     running = true;
     const summary = { succeeded: 0, failed: 0, retrying: 0, waiting: 0, flushed: 0 };
@@ -158,7 +159,7 @@ export function createSyncEngine({
           await store.commit({ deleteOps: [op.op_id] }); // orphan op
           continue;
         }
-        if (report.sync_state === 'Failed' || report.next_retry_at > now() || op.lease_until > now()) {
+        if (report.sync_state === 'Failed' || (!force && report.next_retry_at > now()) || op.lease_until > now()) {
           blocked.add(op.report_id);
           summary.waiting++;
           continue;
