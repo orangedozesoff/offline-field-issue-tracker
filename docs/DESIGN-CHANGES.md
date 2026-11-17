@@ -1,0 +1,15 @@
+# Design changes since the first draft
+
+`docs/DESIGN.md` is the design as planned. These are the decisions that changed or were added while building, and why.
+
+1. **Offline never becomes Failed.** The first draft marked a report Failed after 8 temporary failures of any kind. That would turn every report Failed after a few hours without signal. Now only server errors (5xx, 429, 408) count towards 8 attempts; network failures stay Pending and keep retrying with backoff capped at 60 s.
+2. **Retry delay is skipped on reconnect.** A browser run showed reports waiting up to a minute after the signal returned. The `online` event, the tab becoming visible, and "Sync now" now force an immediate attempt. A Failed report is still never retried automatically.
+3. **History events.** Each local event remembers the operation that created it and travels with that operation. The server writes its own `created` or `edited` event only if the device did not send one, so each change is logged once. A new `POST /reports/:id/events` flushes events that have no operation to ride on (for example `synced` after the last change). Devices may upload only `created`, `edited`, `synced`, `sync_failed`; status events are written only by the server.
+4. **Append-only history is enforced by the database**, with a trigger (a REVOKE does not bind the table owner that the API connects as). The event foreign key is `RESTRICT`, and rejection and reopen reasons are required in the event message, written in the same transaction as the status change.
+5. **Lock check before version check** on edits, so a report that has moved on answers `LOCKED` with the server copy instead of a vague version mismatch. Create is restricted to field workers and status changes to coordinators (403 otherwise).
+6. **Idempotent create refined.** Same id, same content: 200. Same id, different content while the report is still at version 1: 409. Same id when the report has already changed: 200 (the create succeeded earlier).
+7. **Conflict resolution.** A refused edit keeps the user's text and offers "Discard my change" or "Keep my text as a new draft". A refused edit never reaches the server's history as if it had happened.
+8. **Offline app shell.** A service worker caches the page and its scripts so the app opens with no connection; the app also asks the browser for persistent storage.
+9. **Header encoding.** The actor name is percent-encoded in the `X-Actor` header and decoded on the server, so names in any script (for example Amharic) work.
+10. **Testing approach.** Node's built-in test runner instead of Vitest (fewer native dependencies on Termux). The engine is tested with an in-memory store and a fake server that can lose responses; one contract suite runs against both stores; HTTP mapping is tested without Express; repository tests run against a real database in a separate schema.
+11. **Drafts.** An invalid or duplicate submit never leaves a stray draft; a draft is created only from "Save as draft" or a successful submit.

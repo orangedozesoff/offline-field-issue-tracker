@@ -1,5 +1,6 @@
 # Offline Field Issue Tracker: Design Document
 
+Later changes are documented in DESIGN-CHANGES.md.
 Nov 12, 2026 ·&#32;
 
 ## Scope and assumptions
